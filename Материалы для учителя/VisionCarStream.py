@@ -11,6 +11,7 @@ def video():
         if cv2.waitKey(1) & 0xFF == ord('q'):
             break
     cv2.destroyWindow()
+
 robot.open_camera()
 robot.open_control()
 
