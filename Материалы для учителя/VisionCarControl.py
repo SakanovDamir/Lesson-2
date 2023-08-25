@@ -1,15 +1,15 @@
 import cv2
 import pygame
-import numpy as np
+from threading import Thread
 import time
 from visioncar import Robot
 
 pygame.init()
 pygame.display.set_caption("Streaming from Visioncar")
-screen = pygame.display.set_mode([720, 576])
+screen = pygame.display.set_mode([576, 720])
 
-FPS = 120
-pygame.time.set_timer(pygame.USEREVENT + 1, 1000 // FPS)
+# FPS = 720
+# pygame.time.set_timer(pygame.USEREVENT + 1, 1000)
 
 hostname = "robot-fab0c0"
 robot = Robot.discover(hostname)
@@ -20,6 +20,11 @@ robot.open_camera()
 
 driving = False
 steering = 0
+
+robot.submit("stpwm;255") # ШИМ для поворота
+robot.submit("tm;0") # сначала поворот, потом ехать
+robot.submit("td;50") # задержка между поворотом и движением
+robot.submit("br;1") # торможение драйвером
 
 def steer(v):
     global steering
@@ -36,19 +41,23 @@ def getKey(keyName):
     pygame.display.update()
     return ans
 
+def video_cap():
+    while True:
+        frame = robot.capture()
+        frame = cv2.flip(frame, 0)  # отзеркаливаем изображение, чтобы не было как через фронтальную камеру
+        screen.fill([0, 0, 0])
+        frame = pygame.surfarray.make_surface(frame)
+        screen.blit(frame, (0, 0))
+        pygame.display.update()
+
+        if cv2.waitKey(1) == 27:
+            quit()
+
+video = Thread(target=video_cap, daemon=True)
+video.start()
 
 while True:
-    frame = robot.capture()
-    frame = cv2.flip(frame, 1) # отзеркаливаем изображение, чтобы не было как через фронтальную камеру
-    screen.fill([0, 0, 0])
-    # frame = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-    frame = np.rot90(frame) # поворачиваем изображение на 90 град.
-    frame = pygame.surfarray.make_surface(frame)
-    screen.blit(frame, (0, 0))
-    pygame.display.update()
-
-    speed = 50
-    driving
+    speed = 75
 
     if driving and not (getKey("UP") or getKey("DOWN")):
         robot.stop()
@@ -98,6 +107,3 @@ while True:
         robot.turn(180)
         while getKey("d"):
             time.sleep(0.05)
-
-    if cv2.waitKey(1) == 27:
-        quit()
